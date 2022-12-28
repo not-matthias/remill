@@ -52,5 +52,5 @@ ARG LLVM_VERSION
 COPY --from=build /opt/trailofbits /opt/trailofbits
 COPY scripts/docker-lifter-entrypoint.sh /opt/trailofbits
 ENV LLVM_VERSION=llvm${LLVM_VERSION} \
-    PATH=/opt/trailofbits/bin
+    PATH=/opt/trailofbits/bin:$PATH
 ENTRYPOINT ["/opt/trailofbits/docker-lifter-entrypoint.sh"]
