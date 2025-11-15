@@ -229,7 +229,7 @@
       in
       {
         packages = {
-          inherit sleigh remill;
+          inherit sleigh remill xed-2022;
           default = remill;
         };
 
