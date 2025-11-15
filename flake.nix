@@ -124,7 +124,7 @@
             xed-2022
           ] ++ pkgs.lib.optional (!pkgs.stdenv.isDarwin) pkgs.glibc_multi;
 
-          outputs = [ "out" "dev" "lib" ];
+          outputs = [ "out" "dev" "lib" "deps" ];
 
           # Git version variables
           GIT_RETRIEVED_STATE = true;
@@ -216,6 +216,23 @@
           ];
 
           hardeningDisable = [ "zerocallusedregs" ];
+
+          # Copy all build dependencies into the deps output
+          postInstall = ''
+            mkdir -p $deps/lib $deps/include
+            cp -r ${sleigh-patched ./. }/lib/* $deps/lib/ || true
+            cp -r ${sleigh-patched ./. }/include/* $deps/include/ || true
+            cp -r ${llvmPkgs.llvm}/lib/* $deps/lib/ || true
+            cp -r ${llvmPkgs.llvm}/include/* $deps/include/ || true
+            cp -r ${pkgs.glog}/lib/* $deps/lib/ || true
+            cp -r ${pkgs.glog}/include/* $deps/include/ || true
+            cp -r ${pkgs.gtest}/lib/* $deps/lib/ || true
+            cp -r ${pkgs.gtest}/include/* $deps/include/ || true
+            cp -r ${pkgs.abseil-cpp}/lib/* $deps/lib/ || true
+            cp -r ${pkgs.abseil-cpp}/include/* $deps/include/ || true
+            cp -r ${xed-2022}/lib/* $deps/lib/ || true
+            cp -r ${xed-2022}/include/* $deps/include/ || true
+          '';
 
           meta = with pkgs.lib; {
             description = "Library for lifting machine code to LLVM bitcode";
