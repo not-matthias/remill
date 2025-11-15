@@ -119,6 +119,7 @@
             sleigh-with-patches
             llvmPkgs.llvm
             pkgs.glog
+            pkgs.gflags
             pkgs.gtest
             pkgs.abseil-cpp
             xed-2022
@@ -226,6 +227,8 @@
             cp -r ${llvmPkgs.llvm}/include/* $deps/include/ || true
             cp -r ${pkgs.glog}/lib/* $deps/lib/ || true
             cp -r ${pkgs.glog}/include/* $deps/include/ || true
+            cp -r ${pkgs.gflags}/lib/* $deps/lib/ || true
+            cp -r ${pkgs.gflags}/include/* $deps/include/ || true
             cp -r ${pkgs.gtest}/lib/* $deps/lib/ || true
             cp -r ${pkgs.gtest}/include/* $deps/include/ || true
             cp -r ${pkgs.abseil-cpp}/lib/* $deps/lib/ || true
