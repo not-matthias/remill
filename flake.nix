@@ -219,7 +219,7 @@
 
           # Copy all build dependencies into the deps output
           postInstall = ''
-            mkdir -p $deps/lib $deps/include
+            mkdir -p $deps/lib $deps/include $deps/share/ghidra
             cp -r ${sleigh-patched ./. }/lib/* $deps/lib/ || true
             cp -r ${sleigh-patched ./. }/include/* $deps/include/ || true
             cp -r ${llvmPkgs.llvm}/lib/* $deps/lib/ || true
@@ -232,6 +232,7 @@
             cp -r ${pkgs.abseil-cpp}/include/* $deps/include/ || true
             cp -r ${xed-2022}/lib/* $deps/lib/ || true
             cp -r ${xed-2022}/include/* $deps/include/ || true
+            cp -r ${ghidra-fork-src}/. $deps/share/ghidra/ || true
           '';
 
           meta = with pkgs.lib; {
