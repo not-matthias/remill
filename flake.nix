@@ -118,6 +118,7 @@
           buildInputs = [
             sleigh-with-patches
             llvmPkgs.llvm
+            llvmPkgs.libllvm
             pkgs.glog
             pkgs.gflags
             pkgs.gtest
@@ -225,6 +226,8 @@
             cp -r ${sleigh-patched ./. }/include/* $deps/include/ || true
             cp -r ${llvmPkgs.llvm}/lib/* $deps/lib/ || true
             cp -r ${llvmPkgs.llvm}/include/* $deps/include/ || true
+            cp -r ${llvmPkgs.libllvm}/lib/* $deps/lib/ || true
+            cp -r ${llvmPkgs.libllvm.dev}/include/* $deps/include/ || true
             cp -r ${pkgs.glog}/lib/* $deps/lib/ || true
             cp -r ${pkgs.glog}/include/* $deps/include/ || true
             cp -r ${pkgs.gflags}/lib/* $deps/lib/ || true
