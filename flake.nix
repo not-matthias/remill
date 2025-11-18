@@ -224,10 +224,8 @@
             mkdir -p $deps/lib $deps/include $deps/share/ghidra
             cp -r ${sleigh-patched ./. }/lib/* $deps/lib/ || true
             cp -r ${sleigh-patched ./. }/include/* $deps/include/ || true
-            cp -r ${llvmPkgs.llvm}/lib/* $deps/lib/ || true
-            cp -r ${llvmPkgs.llvm}/include/* $deps/include/ || true
-            cp -r ${llvmPkgs.libllvm}/lib/* $deps/lib/ || true
-            cp -r ${llvmPkgs.libllvm.dev}/include/* $deps/include/ || true
+            cp -r ${llvmPkgs.llvm.lib}/lib/* $deps/lib/ || true
+            cp -r ${llvmPkgs.llvm.dev}/include/* $deps/include/ || true
             cp -r ${pkgs.glog}/lib/* $deps/lib/ || true
             cp -r ${pkgs.glog}/include/* $deps/include/ || true
             cp -r ${pkgs.gflags}/lib/* $deps/lib/ || true
@@ -238,7 +236,6 @@
             cp -r ${pkgs.abseil-cpp}/include/* $deps/include/ || true
             cp -r ${xed-2022}/lib/* $deps/lib/ || true
             cp -r ${xed-2022}/include/* $deps/include/ || true
-            cp -r ${ghidra-fork-src}/. $deps/share/ghidra/ || true
           '';
 
           meta = with pkgs.lib; {
@@ -253,8 +250,18 @@
       in
       {
         packages = {
-          inherit sleigh remill xed-2022;
+          inherit sleigh remill xed-2022 sleigh-patched;
           default = remill;
+
+          # Expose individual dependencies
+          deps = {
+            sleigh = sleigh-patched ./. ;
+            xed = xed-2022;
+            llvm = llvmPkgs.llvm;
+            glog = pkgs.glog;
+            gtest = pkgs.gtest;
+            abseil = pkgs.abseil-cpp;
+          };
         };
 
         devShells.default = pkgs.mkShell {
