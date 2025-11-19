@@ -188,7 +188,7 @@
 
             # Configure bitcode compiler
             BC_CXX=${llvmPkgs.libcxxClang}/bin/clang++
-            BC_CXXFLAGS="-g0 $(cat ${llvmPkgs.libcxxClang}/nix-support/libcxx-cxxflags) -D_LIBCPP_HAS_NO_THREADS"
+            BC_CXXFLAGS="-g0 -D_LIBCPP_HAS_NO_THREADS"
             BC_LD=$(command -v llvm-link)
             BC_LDFLAGS=""
 
@@ -199,8 +199,9 @@
               --replace 'find_program(CLANG_PATH NAMES clang++ clang PATHS ''${LLVMLINK_PATH_DIR} NO_DEFAULT_PATH REQUIRED)' "" \
               --replace '$'{CLANG_PATH} $BC_CXX \
               --replace '$'{LLVMLINK_PATH} $BC_LD \
-              --replace '$'{source_file_option_list} '$'{source_file_option_list}" $BC_CXXFLAGS" \
-              --replace '$'{linker_flag_list} '$'{linker_flag_list}" $BC_LDFLAGS"
+              --replace '-Wgnu-inline-cpp-without-extern' '-Wgnu-inline-cpp-without-extern -Wno-error' \
+              --replace '$'{source_file_option_list} '$'{source_file_option_list}" ''$BC_CXXFLAGS" \
+              --replace '$'{linker_flag_list} '$'{linker_flag_list}" ''$BC_LDFLAGS"
 
             # Inject Git version info
             substituteInPlace lib/Version/Version.cpp.in \
@@ -215,7 +216,7 @@
               --subst-var GIT_DESCRIBE
           '';
 
-          CXXFLAGS = "-include cstdint -g0 -Wno-error=return-type";
+          CXXFLAGS = "-include cstdint -g0 -Wno-error=return-type -Wno-deprecated-literal-operator -Wno-deprecated-declarations -Wno-unused-but-set-variable -Wno-error";
 
           cmakeFlags = [
             "-DCMAKE_C_COMPILER=${llvmPkgs.clang}/bin/clang"
