@@ -317,6 +317,7 @@
             '';
 
             sleigh = sleigh-patched ./.;
+            llvmPkgs = llvmPkgs;
             llvm = llvmPkgs.llvm;
             glog = pkgs.glog;
             gtest = pkgs.gtest;
