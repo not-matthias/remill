@@ -222,8 +222,12 @@
           # Copy all build dependencies into the deps output
           postInstall = ''
             mkdir -p $deps/lib $deps/include $deps/share/ghidra
-            cp -r ${sleigh-patched ./. }/lib/* $deps/lib/ || true
-            cp -r ${sleigh-patched ./. }/include/* $deps/include/ || true
+            mkdir -p $dev/share
+
+            # Copy sleigh specfiles to dev output (required by sleigh CMake config)
+            cp -r ${sleigh-patched ./. }/share/* $dev/share/ || true
+
+            # Copy all dependencies to deps output
             cp -r ${llvmPkgs.llvm.lib}/lib/* $deps/lib/ || true
             cp -r ${llvmPkgs.llvm.dev}/include/* $deps/include/ || true
             cp -r ${pkgs.glog}/lib/* $deps/lib/ || true
@@ -238,6 +242,14 @@
             cp -r ${xed-2022}/include/* $deps/include/ || true
           '';
 
+          # Fix CMake configs to use dev output for includes (multi-output fix)
+          postFixup = ''
+            # Patch remillTargets.cmake to use $dev instead of $out for INTERFACE_INCLUDE_DIRECTORIES
+            chmod +w $dev/lib/cmake/remill
+            sed -i "s|INTERFACE_INCLUDE_DIRECTORIES \"\''${_IMPORT_PREFIX}/include\"|INTERFACE_INCLUDE_DIRECTORIES \"$dev/include\"|g" \
+              $dev/lib/cmake/remill/remillTargets.cmake
+          '';
+
           meta = with pkgs.lib; {
             description = "Library for lifting machine code to LLVM bitcode";
             homepage = "https://github.com/lifting-bits/remill";
@@ -249,46 +261,143 @@
 
       in
       {
-        packages = {
+        packages = rec {
           inherit sleigh remill xed-2022 sleigh-patched;
           default = remill;
 
-          # Expose individual dependencies
+          # Expose individual dependencies with CMake configs
           deps = {
+            xed = pkgs.runCommand "xed-with-cmake" {} ''
+              cp -r ${xed-2022} $out
+              chmod -R +w $out
+              mkdir -p $out/lib/cmake/xed
+              cat > $out/lib/cmake/xed/XEDConfig.cmake <<'EOF'
+if(XED_FOUND)
+    return()
+endif()
+
+get_filename_component(PACKAGE_PREFIX_DIR "''${CMAKE_CURRENT_LIST_DIR}/../../../" ABSOLUTE)
+
+find_library(XED_LIBRARY xed PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
+add_library(XED::XED STATIC IMPORTED)
+set_target_properties(XED::XED PROPERTIES
+    IMPORTED_CONFIGURATIONS "NOCONFIG"
+    IMPORTED_LOCATION_NOCONFIG "''${XED_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
+)
+
+find_library(ILD_LIBRARY xed-ild PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
+add_library(XED::ILD STATIC IMPORTED)
+set_target_properties(XED::ILD PROPERTIES
+    IMPORTED_CONFIGURATIONS "NOCONFIG"
+    IMPORTED_LOCATION_NOCONFIG "''${ILD_LIBRARY}"
+    INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
+)
+
+set(XED_FOUND ON)
+EOF
+            '';
+
             sleigh = sleigh-patched ./. ;
-            xed = xed-2022;
             llvm = llvmPkgs.llvm;
             glog = pkgs.glog;
             gtest = pkgs.gtest;
             abseil = pkgs.abseil-cpp;
+            lief = pkgs.lief;
+          };
+
+          # Expose remill library output separately
+          lib = remill.lib;
+
+          # RemillWorkshop package
+          workshop = pkgs.stdenv.mkDerivation {
+            pname = "remill-workshop";
+            version = "0.1.0";
+
+            src = ./RemillWorkshop;
+
+            nativeBuildInputs = [
+              pkgs.cmake
+              pkgs.ninja
+              llvmPkgs.clang
+            ];
+
+            buildInputs = [
+              remill
+              deps.llvm
+              deps.sleigh
+              deps.xed
+              deps.lief
+            ];
+
+            cmakeFlags = [
+              "-DCMAKE_PREFIX_PATH=${remill.dev};${deps.llvm};${deps.sleigh};${deps.xed};${deps.lief}"
+            ];
+
+            meta = with pkgs.lib; {
+              description = "Workshop materials for learning Remill";
+              homepage = "https://github.com/lifting-bits/remill";
+              license = licenses.asl20;
+              platforms = platforms.unix;
+            };
           };
         };
 
-        devShells.default = pkgs.mkShell {
-          inputsFrom = [ remill ];
+        devShells = {
+          default = pkgs.mkShell {
+            inputsFrom = [ remill ];
 
+            packages = with pkgs; [
+              cmake
+              ninja
+              python3
+              git
+              llvmPkgs.clang
+              llvmPkgs.llvm
+              llvmPkgs.lld
+              llvmPkgs.clang-tools
+              ccache
+              gdb
+            ];
+
+            shellHook = ''
+              echo "Remill development environment (LLVM 18)"
+              echo ""
+              echo "Build remill:"
+              echo "  nix build .#remill"
+              echo ""
+              echo "Enter development shell:"
+              echo "  nix develop"
+            '';
+          };
+
+          # Workshop-specific dev shell with all dependencies for RemillWorkshop
+          workshop = pkgs.mkShell {
           packages = with pkgs; [
             cmake
             ninja
-            python3
-            git
             llvmPkgs.clang
-            llvmPkgs.llvm
-            llvmPkgs.lld
-            llvmPkgs.clang-tools
-            ccache
-            gdb
+            lief
           ];
 
           shellHook = ''
-            echo "Remill development environment (LLVM 18)"
+            echo "RemillWorkshop development environment"
             echo ""
-            echo "Build remill:"
-            echo "  nix build .#remill"
+            echo "Available dependencies:"
+            echo "  remill: ${remill}"
+            echo "  remill.dev: ${remill.dev}"
+            echo "  XED: ${self.packages.${system}.deps.xed}"
+            echo "  Sleigh: ${self.packages.${system}.deps.sleigh}"
+            echo "  LLVM: ${self.packages.${system}.deps.llvm}"
+            echo "  LIEF: ${self.packages.${system}.deps.lief}"
             echo ""
-            echo "Enter development shell:"
-            echo "  nix develop"
+            echo "Build RemillWorkshop:"
+            echo "  cd RemillWorkshop"
+            echo "  cmake --preset clang \\"
+            echo "    -DCMAKE_PREFIX_PATH=\"${remill};${remill.dev};${self.packages.${system}.deps.llvm};${self.packages.${system}.deps.sleigh};${self.packages.${system}.deps.xed};${self.packages.${system}.deps.lief}\""
+            echo "  cmake --build build"
           '';
+          };
         };
 
         formatter = pkgs.nixfmt-rfc-style;
