@@ -243,11 +243,21 @@
           '';
 
           # Fix CMake configs to use dev output for includes (multi-output fix)
+          # When CMake generates the remill package config files, it embeds absolute paths
+          # based on the build output paths. Since we use multi-output derivations, we need
+          # to update these paths to point to the correct dev output instead of the main output.
+          # This is critical for downstream packages (like RemillWorkshop) that depend on remill.
           postFixup = ''
-            # Patch remillTargets.cmake to use $dev instead of $out for INTERFACE_INCLUDE_DIRECTORIES
-            chmod +w $dev/lib/cmake/remill
-            sed -i "s|INTERFACE_INCLUDE_DIRECTORIES \"\''${_IMPORT_PREFIX}/include\"|INTERFACE_INCLUDE_DIRECTORIES \"$dev/include\"|g" \
-              $dev/lib/cmake/remill/remillTargets.cmake
+            # Patch all remill CMake files to use $dev instead of $out
+            chmod -R +w $dev/lib/cmake/remill
+
+            # Fix _IMPORT_PREFIX - CMake uses this variable to locate the package
+            find $dev/lib/cmake/remill -name "*.cmake" -exec sed -i \
+              "s|set(_IMPORT_PREFIX \"[^\"]*\"|set(_IMPORT_PREFIX \"$dev\"|g" {} \;
+
+            # Fix INTERFACE_INCLUDE_DIRECTORIES to use the patched _IMPORT_PREFIX
+            find $dev/lib/cmake/remill -name "*.cmake" -exec sed -i \
+              "s|INTERFACE_INCLUDE_DIRECTORIES \"\''${_IMPORT_PREFIX}/include\"|INTERFACE_INCLUDE_DIRECTORIES \"$dev/include\"|g" {} \;
           '';
 
           meta = with pkgs.lib; {
