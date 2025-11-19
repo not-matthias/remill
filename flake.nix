@@ -10,7 +10,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        llvmPkgs = pkgs.llvmPackages_18;
+        llvmPkgs = pkgs.llvmPackages_21;
 
         # Override XED to use a version compatible with remill (2022 vintage)
         xed-2022 = pkgs.xed.overrideAttrs rec {
@@ -371,7 +371,7 @@ EOF
             ];
 
             shellHook = ''
-              echo "Remill development environment (LLVM 18)"
+              echo "Remill development environment"
               echo ""
               echo "Build remill:"
               echo "  nix build .#remill"
