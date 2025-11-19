@@ -4,11 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    treefmt-nix,
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
         pkgs = nixpkgs.legacyPackages.${system};
         llvmPkgs = pkgs.llvmPackages_21;
 
@@ -47,7 +53,7 @@
             hash = "sha256-7Iv1awZP5lU1LpGqC0nyiMxy0+3WOmM2NTdDYIzKmmk=";
           };
 
-          nativeBuildInputs = [ pkgs.python3 pkgs.cmake ];
+          nativeBuildInputs = [pkgs.python3 pkgs.cmake];
 
           preConfigure = ''
             ghidra=$(mktemp -d)
@@ -64,7 +70,7 @@
             ' >> src/setup-ghidra-source.cmake
           '';
 
-          sleigh_ADDITIONAL_PATCHES = [ ];
+          sleigh_ADDITIONAL_PATCHES = [];
 
           cmakeFlags = [
             "-Dsleigh_RELEASE_TYPE=HEAD"
@@ -79,20 +85,21 @@
         });
 
         # Sleigh with remill-specific patches
-        sleigh-patched = remill-src: sleigh.overrideAttrs (old: {
-          sleigh_ADDITIONAL_PATCHES = [
-            "${remill-src}/patches/sleigh/0001-AARCH64base.patch"
-            "${remill-src}/patches/sleigh/0001-AARCH64instructions.patch"
-            "${remill-src}/patches/sleigh/0001-ARM.patch"
-            "${remill-src}/patches/sleigh/0001-ARMTHUMBinstructions.patch"
-            "${remill-src}/patches/sleigh/0001-ppc_common.patch"
-            "${remill-src}/patches/sleigh/0001-ppc_instructions.patch"
-            "${remill-src}/patches/sleigh/0001-ppc_isa.patch"
-            "${remill-src}/patches/sleigh/0001-ppc_vle.patch"
-            "${remill-src}/patches/sleigh/0001-quicciii.patch"
-            "${remill-src}/patches/sleigh/x86-ia.patch"
-          ];
-        });
+        sleigh-patched = remill-src:
+          sleigh.overrideAttrs (old: {
+            sleigh_ADDITIONAL_PATCHES = [
+              "${remill-src}/patches/sleigh/0001-AARCH64base.patch"
+              "${remill-src}/patches/sleigh/0001-AARCH64instructions.patch"
+              "${remill-src}/patches/sleigh/0001-ARM.patch"
+              "${remill-src}/patches/sleigh/0001-ARMTHUMBinstructions.patch"
+              "${remill-src}/patches/sleigh/0001-ppc_common.patch"
+              "${remill-src}/patches/sleigh/0001-ppc_instructions.patch"
+              "${remill-src}/patches/sleigh/0001-ppc_isa.patch"
+              "${remill-src}/patches/sleigh/0001-ppc_vle.patch"
+              "${remill-src}/patches/sleigh/0001-quicciii.patch"
+              "${remill-src}/patches/sleigh/x86-ia.patch"
+            ];
+          });
 
         # Main remill package
         remill = pkgs.stdenv.mkDerivation (self: rec {
@@ -115,18 +122,20 @@
             pkgs.ninja
           ];
 
-          buildInputs = [
-            sleigh-with-patches
-            llvmPkgs.llvm
-            llvmPkgs.libllvm
-            pkgs.glog
-            pkgs.gflags
-            pkgs.gtest
-            pkgs.abseil-cpp
-            xed-2022
-          ] ++ pkgs.lib.optional (!pkgs.stdenv.isDarwin) pkgs.glibc_multi;
+          buildInputs =
+            [
+              sleigh-with-patches
+              llvmPkgs.llvm
+              llvmPkgs.libllvm
+              pkgs.glog
+              pkgs.gflags
+              pkgs.gtest
+              pkgs.abseil-cpp
+              xed-2022
+            ]
+            ++ pkgs.lib.optional (!pkgs.stdenv.isDarwin) pkgs.glibc_multi;
 
-          outputs = [ "out" "dev" "lib" "deps" ];
+          outputs = ["out" "dev" "lib" "deps"];
 
           # Git version variables
           GIT_RETRIEVED_STATE = true;
@@ -217,7 +226,7 @@
             "-DREMILL_ENABLE_TESTING=OFF"
           ];
 
-          hardeningDisable = [ "zerocallusedregs" ];
+          hardeningDisable = ["zerocallusedregs"];
 
           # Copy all build dependencies into the deps output
           postInstall = ''
@@ -225,7 +234,7 @@
             mkdir -p $dev/share
 
             # Copy sleigh specfiles to dev output (required by sleigh CMake config)
-            cp -r ${sleigh-patched ./. }/share/* $dev/share/ || true
+            cp -r ${sleigh-patched ./.}/share/* $dev/share/ || true
 
             # Copy all dependencies to deps output
             cp -r ${llvmPkgs.llvm.lib}/lib/* $deps/lib/ || true
@@ -268,9 +277,7 @@
             broken = pkgs.stdenv.isDarwin && pkgs.stdenv.isAarch64;
           };
         });
-
-      in
-      {
+      in {
         packages = rec {
           inherit sleigh remill xed-2022 sleigh-patched;
           default = remill;
@@ -278,37 +285,37 @@
           # Expose individual dependencies with CMake configs
           deps = {
             xed = pkgs.runCommand "xed-with-cmake" {} ''
-              cp -r ${xed-2022} $out
-              chmod -R +w $out
-              mkdir -p $out/lib/cmake/xed
-              cat > $out/lib/cmake/xed/XEDConfig.cmake <<'EOF'
-if(XED_FOUND)
-    return()
-endif()
+                            cp -r ${xed-2022} $out
+                            chmod -R +w $out
+                            mkdir -p $out/lib/cmake/xed
+                            cat > $out/lib/cmake/xed/XEDConfig.cmake <<'EOF'
+              if(XED_FOUND)
+                  return()
+              endif()
 
-get_filename_component(PACKAGE_PREFIX_DIR "''${CMAKE_CURRENT_LIST_DIR}/../../../" ABSOLUTE)
+              get_filename_component(PACKAGE_PREFIX_DIR "''${CMAKE_CURRENT_LIST_DIR}/../../../" ABSOLUTE)
 
-find_library(XED_LIBRARY xed PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
-add_library(XED::XED STATIC IMPORTED)
-set_target_properties(XED::XED PROPERTIES
-    IMPORTED_CONFIGURATIONS "NOCONFIG"
-    IMPORTED_LOCATION_NOCONFIG "''${XED_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
-)
+              find_library(XED_LIBRARY xed PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
+              add_library(XED::XED STATIC IMPORTED)
+              set_target_properties(XED::XED PROPERTIES
+                  IMPORTED_CONFIGURATIONS "NOCONFIG"
+                  IMPORTED_LOCATION_NOCONFIG "''${XED_LIBRARY}"
+                  INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
+              )
 
-find_library(ILD_LIBRARY xed-ild PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
-add_library(XED::ILD STATIC IMPORTED)
-set_target_properties(XED::ILD PROPERTIES
-    IMPORTED_CONFIGURATIONS "NOCONFIG"
-    IMPORTED_LOCATION_NOCONFIG "''${ILD_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
-)
+              find_library(ILD_LIBRARY xed-ild PATHS "''${PACKAGE_PREFIX_DIR}/lib" NO_CACHE REQUIRED NO_DEFAULT_PATH)
+              add_library(XED::ILD STATIC IMPORTED)
+              set_target_properties(XED::ILD PROPERTIES
+                  IMPORTED_CONFIGURATIONS "NOCONFIG"
+                  IMPORTED_LOCATION_NOCONFIG "''${ILD_LIBRARY}"
+                  INTERFACE_INCLUDE_DIRECTORIES "''${PACKAGE_PREFIX_DIR}/include"
+              )
 
-set(XED_FOUND ON)
-EOF
+              set(XED_FOUND ON)
+              EOF
             '';
 
-            sleigh = sleigh-patched ./. ;
+            sleigh = sleigh-patched ./.;
             llvm = llvmPkgs.llvm;
             glog = pkgs.glog;
             gtest = pkgs.gtest;
@@ -355,7 +362,7 @@ EOF
 
         devShells = {
           default = pkgs.mkShell {
-            inputsFrom = [ remill ];
+            inputsFrom = [remill];
 
             packages = with pkgs; [
               cmake
@@ -383,34 +390,39 @@ EOF
 
           # Workshop-specific dev shell with all dependencies for RemillWorkshop
           workshop = pkgs.mkShell {
-          packages = with pkgs; [
-            cmake
-            ninja
-            llvmPkgs.clang
-            lief
-          ];
+            packages = with pkgs; [
+              cmake
+              ninja
+              llvmPkgs.clang
+              lief
+            ];
 
-          shellHook = ''
-            echo "RemillWorkshop development environment"
-            echo ""
-            echo "Available dependencies:"
-            echo "  remill: ${remill}"
-            echo "  remill.dev: ${remill.dev}"
-            echo "  XED: ${self.packages.${system}.deps.xed}"
-            echo "  Sleigh: ${self.packages.${system}.deps.sleigh}"
-            echo "  LLVM: ${self.packages.${system}.deps.llvm}"
-            echo "  LIEF: ${self.packages.${system}.deps.lief}"
-            echo ""
-            echo "Build RemillWorkshop:"
-            echo "  cd RemillWorkshop"
-            echo "  cmake --preset clang \\"
-            echo "    -DCMAKE_PREFIX_PATH=\"${remill};${remill.dev};${self.packages.${system}.deps.llvm};${self.packages.${system}.deps.sleigh};${self.packages.${system}.deps.xed};${self.packages.${system}.deps.lief}\""
-            echo "  cmake --build build"
-          '';
+            shellHook = ''
+              echo "RemillWorkshop development environment"
+              echo ""
+              echo "Available dependencies:"
+              echo "  remill: ${remill}"
+              echo "  remill.dev: ${remill.dev}"
+              echo "  XED: ${self.packages.${system}.deps.xed}"
+              echo "  Sleigh: ${self.packages.${system}.deps.sleigh}"
+              echo "  LLVM: ${self.packages.${system}.deps.llvm}"
+              echo "  LIEF: ${self.packages.${system}.deps.lief}"
+              echo ""
+              echo "Build RemillWorkshop:"
+              echo "  cd RemillWorkshop"
+              echo "  cmake --preset clang \\"
+              echo "    -DCMAKE_PREFIX_PATH=\"${remill};${remill.dev};${self.packages.${system}.deps.llvm};${self.packages.${system}.deps.sleigh};${self.packages.${system}.deps.xed};${self.packages.${system}.deps.lief}\""
+              echo "  cmake --build build"
+            '';
           };
         };
 
-        formatter = pkgs.nixfmt-rfc-style;
+        formatter = treefmt-nix.lib.mkWrapper pkgs {
+          projectRootFile = ".git/config";
+          programs = {
+            alejandra.enable = true;
+          };
+        };
       }
     );
 }
